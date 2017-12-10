@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Nov 19 18:41:43 2017
+Created on Sun Dec 10 00:34:59 2017
 
 @author: javenxu
 """
@@ -15,10 +15,6 @@ import scipy as sp
 returns = pd.read_csv('asset_ret.csv')
 
 discount_r = returns['stock'].mean()*0.6 + returns['bond'].mean()*0.4
-
-
-returns.tail()
-train_ret = returns.iloc[0:40, 0:3]
 
 def calc_util(c, eta1, eta2):
     if c > 1:        
@@ -48,6 +44,8 @@ def calc_state_utility(h, ret, w_s, v_init, c=1, v_th=100, eta=1.5):
 u_table = pd.DataFrame(index=range(1, 121), columns=range(1, 31))
 a_table = pd.DataFrame(index=range(1, 121), columns=range(1, 31))
 
+train_ret = returns.iloc[0:40, 0:3]
+
 for h in range(1, 11):
     for v in range(1, 121):
         policy = pd.Series()
@@ -71,12 +69,11 @@ plt.xlabel('initial portfolio value')
 plt.legend(loc='best', prop={'size': 8})
 plt.title('stock allocation as a function of horizon and init_port_value, eta=1.5')
 
-
 # test code
 # testing periods
-test_ret = returns.tail(30)
-portval_table = pd.DataFrame(index=test_ret['year'].tolist(), columns=range(1, 31))
-benchval_table = pd.DataFrame(index=test_ret['year'].tolist(), columns=range(1, 31))
+test_ret = returns.tail(40)
+portval_table = pd.DataFrame(index=test_ret['year'].tolist(), columns=range(1, 21))
+benchval_table = pd.DataFrame(index=test_ret['year'].tolist(), columns=range(1, 21))
 full_ret = returns.set_index('year')
 def test_port(start_year, h, r=discount_r, ws_bench=0.6,
               c=1.8, v_th=100, eta=1.5, lookback=50, full_ret=full_ret):
@@ -101,19 +98,22 @@ def test_port(start_year, h, r=discount_r, ws_bench=0.6,
         time_remain = time_remain -1
     return(v, v_bench)
 
-test_period_start = int(test_ret.iloc[0].year) # starting in year 1987
+
+
+training_period_mean_ret = returns.head(49).mean()
+discount_r = training_period_mean_ret['stock']*0.6 + training_period_mean_ret['bond']*0.4
+test_period_start = int(test_ret.iloc[0].year) # starting in year 1977
 for start_year in test_ret['year'].tolist():
     start_year = int(start_year)
-    for h in range(1, 31+test_period_start-start_year):
+    for h in range(1, min(21, (2016 - start_year + 2))):
         print(start_year, h)
-        (v, v_bench) = test_port(start_year, h, r=discount_r, c=1.8, v_th=100, eta=1.5)
+        (v, v_bench) = test_port(start_year, h, r=discount_r, c=1.5, v_th=100, eta=1.5, lookback=40)
         portval_table.loc[start_year, h] = v
         benchval_table.loc[start_year, h] = v_bench
 
-portval_table[10]
-benchval_table[10]
-full_ret
-sum(portval_table < benchval_table)
-(portval_table > benchval_table).sum()
-(portval_table < benchval_table).sum()
-calc_state_utility(h, train_ret, s, v_init=v, c=1.8, v_th=100, eta=1.5)
+
+compare = pd.concat((pd.DataFrame((portval_table > benchval_table).sum()),
+             pd.DataFrame((portval_table < benchval_table).sum())), axis=1)
+
+compare.columns = ['proposed_approach_win', 'benchmark_win']
+
